@@ -110,7 +110,7 @@ export const obterOperacoesPorDia = (data: string): Operacao[] => {
 // Função para salvar array completo de freebets (para backup/restore)
 export const salvarFreebets = (freebets: Freebet[]): void => {
   try {
-    localStorage.setItem(CHAVE_FREEBETS, JSON.stringify(freebets));
+    localStorage.setItem(STORAGE_KEYS.FREEBETS, JSON.stringify(freebets));
   } catch (error) {
     console.error('Erro ao salvar freebets:', error);
     throw new Error('Falha ao salvar freebets no localStorage');
@@ -160,7 +160,7 @@ export const excluirFreebet = (freebetId: string): void => {
 // Função para salvar array completo de extrações (para backup/restore)
 export const salvarExtracoes = (extracoes: ExtracaoFreebet[]): void => {
   try {
-    localStorage.setItem(CHAVE_EXTRACOES, JSON.stringify(extracoes));
+    localStorage.setItem(STORAGE_KEYS.EXTRACOES, JSON.stringify(extracoes));
   } catch (error) {
     console.error('Erro ao salvar extrações:', error);
     throw new Error('Falha ao salvar extrações no localStorage');
