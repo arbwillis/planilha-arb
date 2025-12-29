@@ -27,16 +27,9 @@ const OTHER_POSSIBLE_KEYS = [
 const migrarFreebetsSeNecessario = (): void => {
   if (typeof window === 'undefined') return;
   
-  // Verificar se já temos dados na chave atual
   const dadosAtuais = localStorage.getItem(STORAGE_KEYS.FREEBETS);
-  if (dadosAtuais) {
-    console.log('✅ Dados já existem na chave atual');
-    return;
-  }
+  if (dadosAtuais) return;
   
-  console.log('🔄 Verificando migração de freebets...');
-  
-  // Lista de todas as chaves possíveis para verificar
   const todasChaves = [LEGACY_KEYS.FREEBETS, ...OTHER_POSSIBLE_KEYS];
   
   for (const chave of todasChaves) {
@@ -45,22 +38,17 @@ const migrarFreebetsSeNecessario = (): void => {
       try {
         const freebets = JSON.parse(dados);
         if (Array.isArray(freebets) && freebets.length > 0) {
-          console.log(`🔄 Migrando ${freebets.length} freebets da chave: ${chave}`);
           localStorage.setItem(STORAGE_KEYS.FREEBETS, dados);
-          console.log('✅ Migração concluída!');
           return;
         }
-      } catch (error) {
-        console.log(`❌ Erro ao migrar dados da chave ${chave}:`, error);
+      } catch {
+        // Ignorar erros de parse
       }
     }
   }
-  
-  console.log('📋 Nenhum dado antigo encontrado para migração');
 };
 
 // Operações
-// Função para salvar array completo de operações (para backup/restore)
 export const salvarOperacoes = (operacoes: Operacao[]): void => {
   try {
     const dataWithTimestamp = {
@@ -85,27 +73,21 @@ export const obterOperacoes = (): Operacao[] => {
   if (typeof window === 'undefined') return [];
   
   try {
-    // Tentar carregar dados versionados
     const dados = localStorage.getItem(STORAGE_KEYS.OPERACOES);
     if (dados) {
       const parsed = JSON.parse(dados);
-      // Se tem estrutura versionada, retorna os dados
       if (parsed.data && Array.isArray(parsed.data)) {
         return parsed.data;
       }
-      // Se é array direto (formato antigo), retorna como está
       if (Array.isArray(parsed)) {
         return parsed;
       }
     }
     
-    // Tentar carregar dados legados
     const dadosLegados = localStorage.getItem(LEGACY_KEYS.OPERACOES);
     if (dadosLegados) {
       const operacoes = JSON.parse(dadosLegados);
-      // Migrar para novo formato
       salvarOperacoes(operacoes);
-      // Limpar dados antigos
       localStorage.removeItem(LEGACY_KEYS.OPERACOES);
       return operacoes;
     }
@@ -130,27 +112,23 @@ export const obterOperacoesPorDia = (data: string): Operacao[] => {
   return operacoes.filter(op => {
     try {
       const dataOp = new Date(op.data);
-      const dataFiltro = new Date(data + 'T00:00:00'); // Garantir que seja início do dia
+      const dataFiltro = new Date(data + 'T00:00:00');
       
-      // Verificar se as datas são válidas
       if (isNaN(dataOp.getTime()) || isNaN(dataFiltro.getTime())) {
         return false;
       }
       
-      // Normalizar ambas as datas para o início do dia no timezone local
       const dataOpNormalizada = new Date(dataOp.getFullYear(), dataOp.getMonth(), dataOp.getDate());
       const dataFiltroNormalizada = new Date(dataFiltro.getFullYear(), dataFiltro.getMonth(), dataFiltro.getDate());
       
       return dataOpNormalizada.getTime() === dataFiltroNormalizada.getTime();
-    } catch (error) {
-      console.error('Erro ao comparar datas:', error);
+    } catch {
       return false;
     }
   });
 };
 
 // Freebets
-// Função para salvar array completo de freebets (para backup/restore)
 export const salvarFreebets = (freebets: Freebet[]): void => {
   try {
     localStorage.setItem(STORAGE_KEYS.FREEBETS, JSON.stringify(freebets));
@@ -161,58 +139,28 @@ export const salvarFreebets = (freebets: Freebet[]): void => {
 };
 
 export const salvarFreebet = (freebet: Freebet): void => {
-  console.log('💾 SALVANDO FREEBET:', freebet);
-  
   const freebets = obterFreebets();
-  console.log('📋 Freebets existentes:', freebets.length);
-  
   freebets.push(freebet);
-  console.log('📋 Freebets após adicionar:', freebets.length);
-  
-  try {
-    localStorage.setItem(STORAGE_KEYS.FREEBETS, JSON.stringify(freebets));
-    console.log('✅ Freebet salva com sucesso na chave:', STORAGE_KEYS.FREEBETS);
-    
-    // Verificar se foi realmente salva
-    const verificacao = localStorage.getItem(STORAGE_KEYS.FREEBETS);
-    const freebetsSalvas = verificacao ? JSON.parse(verificacao) : [];
-    console.log('🔍 Verificação - Total de freebets salvas:', freebetsSalvas.length);
-  } catch (error) {
-    console.error('❌ Erro ao salvar freebet:', error);
-    throw error;
-  }
+  localStorage.setItem(STORAGE_KEYS.FREEBETS, JSON.stringify(freebets));
 };
 
 export const obterFreebets = (): Freebet[] => {
-  if (typeof window === 'undefined') {
-    console.log('🚫 Window undefined - retornando array vazio');
-    return [];
-  }
+  if (typeof window === 'undefined') return [];
   
-  // Tentar migração primeiro
-  migrarFreebetsSeNecessario();
-  
-  console.log('📖 OBTENDO FREEBETS da chave:', STORAGE_KEYS.FREEBETS);
-  const dados = localStorage.getItem(STORAGE_KEYS.FREEBETS);
-  console.log('📋 Dados brutos do localStorage:', dados ? `${dados.length} chars` : 'null');
-  
-  if (dados) {
-    try {
-      const freebets = JSON.parse(dados);
-      console.log('✅ Freebets parseadas:', freebets.length, 'items');
-      return freebets;
-    } catch (error) {
-      console.error('❌ Erro ao parsear freebets:', error);
-      return [];
+  try {
+    const dados = localStorage.getItem(STORAGE_KEYS.FREEBETS);
+    if (dados) {
+      return JSON.parse(dados);
     }
-  } else {
-    console.log('📋 Nenhuma freebet encontrada - retornando array vazio');
+    return [];
+  } catch {
     return [];
   }
 };
 
 export const obterFreebetsAtivas = (): Freebet[] => {
-  return obterFreebets().filter(fb => fb.ativa);
+  const todasFreebets = obterFreebets();
+  return todasFreebets.filter(fb => fb.ativa === true);
 };
 
 export const marcarFreebetComoExtraida = (freebetId: string): void => {
@@ -231,15 +179,12 @@ export const excluirFreebet = (freebetId: string): void => {
     const freebets = obterFreebets();
     const freebetsAtualizadas = freebets.filter(fb => fb.id !== freebetId);
     localStorage.setItem(STORAGE_KEYS.FREEBETS, JSON.stringify(freebetsAtualizadas));
-    
-    console.log('🗑️ Freebet excluída:', freebetId);
   } catch (error) {
     console.error('Erro ao excluir freebet:', error);
   }
 };
 
 // Extrações
-// Função para salvar array completo de extrações (para backup/restore)
 export const salvarExtracoes = (extracoes: ExtracaoFreebet[]): void => {
   try {
     localStorage.setItem(STORAGE_KEYS.EXTRACOES, JSON.stringify(extracoes));
@@ -257,8 +202,12 @@ export const salvarExtracao = (extracao: ExtracaoFreebet): void => {
 
 export const obterExtracoes = (): ExtracaoFreebet[] => {
   if (typeof window === 'undefined') return [];
+  
   const dados = localStorage.getItem(STORAGE_KEYS.EXTRACOES);
-  return dados ? JSON.parse(dados) : [];
+  if (dados) {
+    return JSON.parse(dados);
+  }
+  return [];
 };
 
 // Utilitários
@@ -267,7 +216,6 @@ export const gerarId = (): string => {
 };
 
 export const formatarData = (data: Date): string => {
-  // Usar timezone local para evitar problemas de fuso horário
   const ano = data.getFullYear();
   const mes = String(data.getMonth() + 1).padStart(2, '0');
   const dia = String(data.getDate()).padStart(2, '0');
@@ -275,7 +223,6 @@ export const formatarData = (data: Date): string => {
 };
 
 export const formatarDataHora = (data: Date): string => {
-  // Usar timezone local para evitar problemas de fuso horário
   const ano = data.getFullYear();
   const mes = String(data.getMonth() + 1).padStart(2, '0');
   const dia = String(data.getDate()).padStart(2, '0');
@@ -286,13 +233,11 @@ export const formatarDataHora = (data: Date): string => {
 };
 
 export const obterDataAtual = (): Date => {
-  // Retorna a data atual no timezone local
   const agora = new Date();
   return new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
 };
 
 export const obterDataHoraAtual = (): Date => {
-  // Retorna a data e hora atual
   return new Date();
 };
 
@@ -305,7 +250,6 @@ export const validarELimparFreebets = (): void => {
     const freebetsValidas: Freebet[] = [];
     
     freebets.forEach(freebet => {
-      // Verificar se a freebet tem todos os campos obrigatórios
       if (
         freebet.id &&
         freebet.titulo &&
@@ -314,10 +258,9 @@ export const validarELimparFreebets = (): void => {
         freebet.dataAquisicao &&
         freebet.dataExpiracao &&
         typeof freebet.prejuizoParaAdquirir === 'number' &&
-        freebet.requisito &&
+        (typeof freebet.requisito === 'string' || freebet.requisito === undefined) &&
         typeof freebet.ativa === 'boolean'
       ) {
-        // Verificar se não é duplicata
         const jaExiste = freebetsValidas.find(fb => 
           fb.titulo === freebet.titulo && 
           fb.valor === freebet.valor && 
@@ -327,64 +270,31 @@ export const validarELimparFreebets = (): void => {
         
         if (!jaExiste) {
           freebetsValidas.push(freebet);
-        } else {
-          console.log('Freebet duplicada removida:', freebet.titulo);
         }
-      } else {
-        console.log('Freebet inválida removida:', freebet);
       }
     });
     
-    // Salvar apenas as freebets válidas
     localStorage.setItem(STORAGE_KEYS.FREEBETS, JSON.stringify(freebetsValidas));
-    
-    console.log(`Limpeza concluída: ${freebets.length} -> ${freebetsValidas.length} freebets`);
   } catch (error) {
     console.error('Erro ao validar freebets:', error);
   }
 };
 
-// FUNÇÃO TEMPORÁRIA PARA DESENVOLVIMENTO - VERIFICAR FREEBETS
-export const verificarFreebets = (): void => {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    const freebets = obterFreebets();
-    console.log('🔍 Verificando todas as freebets:', freebets);
-    
-    freebets.forEach((freebet, index) => {
-      console.log(`Freebet ${index + 1}:`, {
-        titulo: freebet.titulo,
-        dataAquisicao: freebet.dataAquisicao,
-        valor: freebet.valor,
-        ativa: freebet.ativa
-      });
-    });
-  } catch (error) {
-    console.error('Erro ao verificar freebets:', error);
-  }
-};
-
-// FUNÇÃO TEMPORÁRIA PARA DESENVOLVIMENTO - REMOVER QUANDO IMPLEMENTAR BD
+// Limpar todos os dados
 export const limparTodosDados = (): void => {
   if (typeof window === 'undefined') return;
   
   try {
-    // Limpar todos os dados do localStorage
     localStorage.removeItem(STORAGE_KEYS.OPERACOES);
     localStorage.removeItem(STORAGE_KEYS.FREEBETS);
     localStorage.removeItem(STORAGE_KEYS.EXTRACOES);
-    
-    console.log('🗑️ Todos os dados foram limpos do localStorage');
-    
-    // Recarregar a página para atualizar a interface
     window.location.reload();
   } catch (error) {
     console.error('Erro ao limpar dados:', error);
   }
 };
 
-// FUNÇÃO TEMPORÁRIA PARA DESENVOLVIMENTO - REMOVER QUANDO IMPLEMENTAR BD
+// Exportar dados
 export const exportarDados = (): void => {
   if (typeof window === 'undefined') return;
   
@@ -408,8 +318,6 @@ export const exportarDados = (): void => {
     document.body.removeChild(link);
     
     URL.revokeObjectURL(url);
-    
-    console.log('📦 Dados exportados com sucesso');
   } catch (error) {
     console.error('Erro ao exportar dados:', error);
   }

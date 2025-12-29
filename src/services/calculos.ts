@@ -1,4 +1,4 @@
-import { Operacao, Freebet, ExtracaoFreebet, DadosDia, DadosMes } from '@/types';
+import { DadosDia, DadosMes } from '@/types';
 import { 
   obterOperacoesPorDia, 
   obterOperacoesPorMes, 
@@ -27,26 +27,16 @@ export const calcularDadosDia = (data: Date): DadosDia => {
       return total;
     }, 0);
 
-    // Para freebets adquiridas no dia, verificamos TODAS as freebets cadastradas nesta data
-    // (independente de estarem ativas ou não, pois queremos mostrar no calendário quando foram adquiridas)
     const dataFiltroStr = formatarData(data);
     
     const freebetsAdquiridasNoDia = freebets.filter(freebet => {
       try {
-        // A dataAquisicao já está no formato YYYY-MM-DD
         const dataAquisicaoStr = freebet.dataAquisicao;
-        
-        // Garantir que ambas as strings estão no mesmo formato
         if (!dataAquisicaoStr || !dataFiltroStr) {
           return false;
         }
-        
-        
-        // Comparação direta das strings de data (YYYY-MM-DD)
-        // IMPORTANTE: Incluímos TODAS as freebets adquiridas no dia, ativas ou não
         return dataAquisicaoStr === dataFiltroStr;
-      } catch (error) {
-        console.error('Erro ao filtrar freebets por data:', error);
+      } catch {
         return false;
       }
     });
@@ -79,10 +69,12 @@ export const calcularDadosMes = (ano: number, mes: number): DadosMes => {
     const freebets = obterFreebets();
     const extracoes = obterExtracoes().filter(ext => {
       try {
-        const dataExt = new Date(ext.data + 'T00:00:00'); // Força timezone local
+        const dataExt = new Date(ext.data);
+        if (isNaN(dataExt.getTime())) {
+          return false;
+        }
         return dataExt.getFullYear() === ano && dataExt.getMonth() === mes;
-      } catch (error) {
-        console.error('Erro ao processar data de extração:', error);
+      } catch {
         return false;
       }
     });
@@ -100,27 +92,19 @@ export const calcularDadosMes = (ano: number, mes: number): DadosMes => {
       return total;
     }, 0);
 
-    // Para freebets adquiridas no mês, verificamos TODAS as freebets cadastradas neste período
-    // (independente de estarem ativas ou não, pois queremos contabilizar quando foram adquiridas)
     const freebetsAdquiridasNoMes = freebets.filter(freebet => {
       try {
         if (!freebet.dataAquisicao) return false;
         
-        // A dataAquisicao está no formato YYYY-MM-DD
         const dataAquisicaoStr = freebet.dataAquisicao;
         const [anoAquisicao, mesAquisicao] = dataAquisicaoStr.split('-').map(Number);
         
-        // Validar se a conversão foi bem-sucedida
         if (isNaN(anoAquisicao) || isNaN(mesAquisicao)) {
-          console.warn('Data de aquisição inválida:', dataAquisicaoStr);
           return false;
         }
         
-        // Comparar ano e mês (lembrando que mes no JavaScript é 0-indexado)
-        // IMPORTANTE: Incluímos TODAS as freebets adquiridas no mês, ativas ou não
         return anoAquisicao === ano && (mesAquisicao - 1) === mes;
-      } catch (error) {
-        console.error('Erro ao filtrar freebets por mês:', error);
+      } catch {
         return false;
       }
     });
@@ -132,14 +116,18 @@ export const calcularDadosMes = (ano: number, mes: number): DadosMes => {
       return total + freebet.valor;
     }, 0);
 
-    const mediaExtracao = extracoes.length > 0 
-      ? extracoes.reduce((total, ext) => {
-          if (typeof ext.porcentagemExtracao !== 'number' || isNaN(ext.porcentagemExtracao)) {
-            return total;
-          }
-          return total + ext.porcentagemExtracao;
-        }, 0) / extracoes.length
-      : 0;
+    // Calcular média de extração
+    let somaExtracao = 0;
+    let extracoesValidas = 0;
+    
+    extracoes.forEach(ext => {
+      if (typeof ext.porcentagemExtracao === 'number' && !isNaN(ext.porcentagemExtracao)) {
+        somaExtracao += ext.porcentagemExtracao;
+        extracoesValidas++;
+      }
+    });
+    
+    const mediaExtracao = extracoesValidas > 0 ? somaExtracao / extracoesValidas : 0;
 
     return {
       lucroLiquido,

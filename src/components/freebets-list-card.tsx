@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { obterFreebetsAtivas, excluirFreebet, salvarFreebet, gerarId } from '@/services/storage';
+import { obterFreebetsAtivas, excluirFreebet } from '@/services/storage';
 import { obterTotalFreebetsAtivas } from '@/services/calculos';
 import { useEffect, useState } from 'react';
 import { Freebet } from '@/types';
 import { ExtracaoFreebetModal } from './modals/extracao-freebet-modal';
-import { Trash2, TestTube } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 export function FreebetsListCard() {
   const [freebetsAtivas, setFreebetsAtivas] = useState<Freebet[]>([]);
@@ -18,50 +18,13 @@ export function FreebetsListCard() {
   const [modalExtracaoAberto, setModalExtracaoAberto] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const criarFreebetTeste = () => {
-    console.log('🧪 CRIANDO FREEBET DE TESTE...');
-    
-    const freebetTeste: Freebet = {
-      id: gerarId(),
-      titulo: 'Freebet Teste - ' + new Date().toLocaleTimeString(),
-      valor: 50,
-      casaDeApostas: 'Casa Teste',
-      dataExpiracao: '2025-02-15',
-      prejuizoParaAdquirir: 10,
-      requisito: 'Teste de funcionamento',
-      ativa: true,
-      dataAquisicao: new Date().toISOString().split('T')[0]
-    };
-    
-    try {
-      salvarFreebet(freebetTeste);
-      console.log('✅ Freebet de teste criada:', freebetTeste);
-      carregarFreebets();
-      
-      // Disparar evento
-      window.dispatchEvent(new CustomEvent('freebetSalva', { 
-        detail: { freebet: freebetTeste } 
-      }));
-    } catch (error) {
-      console.error('❌ Erro ao criar freebet de teste:', error);
-    }
-  };
-
   const carregarFreebets = () => {
     if (typeof window !== 'undefined') {
-      console.log('🔄 CARREGANDO FREEBETS...');
-      
       const freebets = obterFreebetsAtivas();
       const total = obterTotalFreebetsAtivas();
-      
-      console.log('📋 Freebets ativas encontradas:', freebets);
-      console.log('💰 Total de freebets:', total);
-      
       setFreebetsAtivas(freebets);
       setTotalFreebets(total);
       setIsLoading(false);
-      
-      console.log('✅ Estado atualizado - Freebets:', freebets.length, 'Total:', total);
     }
   };
 
@@ -119,19 +82,13 @@ export function FreebetsListCard() {
   };
 
   const handleExcluirFreebet = (freebet: Freebet, event: React.MouseEvent) => {
-    event.stopPropagation(); // Evitar que o click abra o modal de extração
+    event.stopPropagation();
     
     if (confirm(`Tem certeza que deseja excluir a freebet "${freebet.titulo}"?`)) {
-      console.log('🗑️ Excluindo freebet:', freebet);
-      
-      // Capturar a data de aquisição antes de excluir
       const dataAquisicao = freebet.dataAquisicao;
-      
       excluirFreebet(freebet.id);
-      carregarFreebets(); // Recarregar a lista após exclusão
+      carregarFreebets();
       
-      // Disparar evento customizado com informações da data
-      console.log('📡 Disparando evento freebetExcluida para data:', dataAquisicao);
       window.dispatchEvent(new CustomEvent('freebetExcluida', { 
         detail: { 
           freebetId: freebet.id, 
@@ -170,24 +127,13 @@ export function FreebetsListCard() {
             <CardTitle className="text-xl font-bold">
               Freebets Ativas
             </CardTitle>
-            <div className="flex gap-2 items-center">
-              <Button
-                onClick={criarFreebetTeste}
-                size="sm"
-                variant="outline"
-                className="text-xs"
-              >
-                <TestTube className="w-3 h-3 mr-1" />
-                Teste
-              </Button>
-              <Badge 
-                variant="secondary" 
-                className="text-base px-3 py-2 font-semibold"
-                style={{ backgroundColor: 'oklch(0.6 0.25 240)', color: 'white' }}
-              >
-                {formatarMoeda(totalFreebets)}
-              </Badge>
-            </div>
+            <Badge 
+              variant="secondary" 
+              className="text-base px-3 py-2 font-semibold"
+              style={{ backgroundColor: 'oklch(0.6 0.25 240)', color: 'white' }}
+            >
+              {formatarMoeda(totalFreebets)}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="pt-0 flex-1 flex flex-col">

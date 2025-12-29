@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Storage Freebets</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Storage Freebets</h1>
+    
+    <div class="test">
+        <h3>Teste 1: LocalStorage Básico</h3>
+        <button onclick="testeBasico()">Testar localStorage</button>
+        <div id="resultado1"></div>
+    </div>
+
+    <div class="test">
+        <h3>Teste 2: Chaves Existentes</h3>
+        <button onclick="verificarChaves()">Verificar Chaves</button>
+        <div id="resultado2"></div>
+    </div>
+
+    <div class="test">
+        <h3>Teste 3: Criar Freebet Direta</h3>
+        <button onclick="criarFreebetDireta()">Criar Freebet</button>
+        <div id="resultado3"></div>
+    </div>
+
+    <div class="test">
+        <h3>Teste 4: Simular Função do App</h3>
+        <button onclick="simularFuncaoApp()">Simular salvarFreebet</button>
+        <div id="resultado4"></div>
+    </div>
+
+    <div class="test">
+        <h3>Teste 5: Verificar Dados</h3>
+        <button onclick="verificarDados()">Verificar Dados Salvos</button>
+        <div id="resultado5"></div>
+    </div>
+
+    <div class="test">
+        <h3>Teste 6: Limpar Tudo</h3>
+        <button onclick="limparTudo()">Limpar localStorage</button>
+        <div id="resultado6"></div>
+    </div>
+
+    <script>
+        const CHAVE_FREEBETS = 'planilha-arb-freebets-v2';
+        
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML += `<p style="color: ${isError ? 'red' : 'green'}">${message}</p>`;
+        }
+
+        function testeBasico() {
+            const resultado = document.getElementById('resultado1');
+            resultado.innerHTML = '';
+            
+            try {
+                // Teste básico
+                localStorage.setItem('teste', 'funcionando');
+                const valor = localStorage.getItem('teste');
+                localStorage.removeItem('teste');
+                
+                if (valor === 'funcionando') {
+                    log('resultado1', '✅ localStorage funcionando normalmente');
+                } else {
+                    log('resultado1', '❌ localStorage não está funcionando', true);
+                }
+            } catch (error) {
+                log('resultado1', `❌ Erro no localStorage: ${error.message}`, true);
+            }
+        }
+
+        function verificarChaves() {
+            const resultado = document.getElementById('resultado2');
+            resultado.innerHTML = '';
+            
+            const chaves = [
+                'planilha-arb-freebets-v2',
+                'planilha-arb-freebets',
+                'betting-app-freebets',
+                'freebets'
+            ];
+            
+            log('resultado2', '🔍 Verificando chaves existentes:');
+            
+            chaves.forEach(chave => {
+                const dados = localStorage.getItem(chave);
+                if (dados) {
+                    try {
+                        const parsed = JSON.parse(dados);
+                        log('resultado2', `✅ ${chave}: ${Array.isArray(parsed) ? parsed.length + ' items' : 'dados encontrados'}`);
+                    } catch (e) {
+                        log('resultado2', `⚠️ ${chave}: dados corrompidos`, true);
+                    }
+                } else {
+                    log('resultado2', `❌ ${chave}: vazio`);
+                }
+            });
+        }
+
+        function criarFreebetDireta() {
+            const resultado = document.getElementById('resultado3');
+            resultado.innerHTML = '';
+            
+            try {
+                const freebet = {
+                    id: 'test-' + Date.now(),
+                    titulo: 'Freebet Teste Direto',
+                    valor: 100,
+                    casaDeApostas: 'Casa Teste',
+                    dataExpiracao: '2025-02-28',
+                    prejuizoParaAdquirir: 20,
+                    requisito: 'Teste direto',
+                    ativa: true,
+                    dataAquisicao: new Date().toISOString().split('T')[0]
+                };
+                
+                // Obter dados existentes
+                const dadosExistentes = localStorage.getItem(CHAVE_FREEBETS);
+                const freebets = dadosExistentes ? JSON.parse(dadosExistentes) : [];
+                
+                log('resultado3', `📋 Freebets existentes: ${freebets.length}`);
+                
+                // Adicionar nova
+                freebets.push(freebet);
+                
+                // Salvar
+                localStorage.setItem(CHAVE_FREEBETS, JSON.stringify(freebets));
+                
+                log('resultado3', `✅ Freebet criada! Total: ${freebets.length}`);
+                log('resultado3', `📦 Freebet: ${freebet.titulo} - R$ ${freebet.valor}`);
+                
+            } catch (error) {
+                log('resultado3', `❌ Erro: ${error.message}`, true);
+            }
+        }
+
+        function simularFuncaoApp() {
+            const resultado = document.getElementById('resultado4');
+            resultado.innerHTML = '';
+            
+            try {
+                // Simular exatamente como no app
+                function obterFreebets() {
+                    const dados = localStorage.getItem(CHAVE_FREEBETS);
+                    return dados ? JSON.parse(dados) : [];
+                }
+                
+                function salvarFreebet(freebet) {
+                    const freebets = obterFreebets();
+                    freebets.push(freebet);
+                    localStorage.setItem(CHAVE_FREEBETS, JSON.stringify(freebets));
+                    return freebets.length;
+                }
+                
+                const freebet = {
+                    id: 'app-' + Date.now(),
+                    titulo: 'Freebet Simulação App',
+                    valor: 75,
+                    casaDeApostas: 'Simulação',
+                    dataExpiracao: '2025-03-15',
+                    prejuizoParaAdquirir: 15,
+                    requisito: 'Simulação do app',
+                    ativa: true,
+                    dataAquisicao: new Date().toISOString().split('T')[0]
+                };
+                
+                const totalAntes = obterFreebets().length;
+                log('resultado4', `📋 Freebets antes: ${totalAntes}`);
+                
+                const totalDepois = salvarFreebet(freebet);
+                log('resultado4', `📋 Freebets depois: ${totalDepois}`);
+                
+                if (totalDepois > totalAntes) {
+                    log('resultado4', '✅ Função salvarFreebet funcionando!');
+                } else {
+                    log('resultado4', '❌ Função salvarFreebet com problema', true);
+                }
+                
+            } catch (error) {
+                log('resultado4', `❌ Erro na simulação: ${error.message}`, true);
+            }
+        }
+
+        function verificarDados() {
+            const resultado = document.getElementById('resultado5');
+            resultado.innerHTML = '';
+            
+            try {
+                const dados = localStorage.getItem(CHAVE_FREEBETS);
+                
+                if (!dados) {
+                    log('resultado5', '❌ Nenhum dado encontrado na chave principal', true);
+                    return;
+                }
+                
+                const freebets = JSON.parse(dados);
+                log('resultado5', `📊 Total de freebets: ${freebets.length}`);
+                
+                freebets.forEach((fb, index) => {
+                    log('resultado5', `${index + 1}. ${fb.titulo} - R$ ${fb.valor} (${fb.ativa ? 'ATIVA' : 'INATIVA'})`);
+                });
+                
+                // Verificar freebets ativas
+                const ativas = freebets.filter(fb => fb.ativa === true);
+                log('resultado5', `✅ Freebets ativas: ${ativas.length}`);
+                
+            } catch (error) {
+                log('resultado5', `❌ Erro ao verificar dados: ${error.message}`, true);
+            }
+        }
+
+        function limparTudo() {
+            const resultado = document.getElementById('resultado6');
+            resultado.innerHTML = '';
+            
+            const chaves = [
+                'planilha-arb-freebets-v2',
+                'planilha-arb-freebets',
+                'betting-app-freebets',
+                'freebets'
+            ];
+            
+            chaves.forEach(chave => {
+                localStorage.removeItem(chave);
+                log('resultado6', `🗑️ Removido: ${chave}`);
+            });
+            
+            log('resultado6', '✅ localStorage limpo!');
+        }
+
+        // Executar teste básico ao carregar
+        window.onload = function() {
+            testeBasico();
+            verificarChaves();
+        };
+    </script>
+</body>
+</html>

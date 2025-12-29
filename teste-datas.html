@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Diferenças de Data</title>
+</head>
+<body>
+    <h1>🔍 Teste Diferenças de Data</h1>
+    <button onclick="testarDatas()">Testar Diferenças</button>
+    <div id="resultado"></div>
+
+    <script>
+        // Simular as funções do app
+        function formatarData(data) {
+            const ano = data.getFullYear();
+            const mes = String(data.getMonth() + 1).padStart(2, '0');
+            const dia = String(data.getDate()).padStart(2, '0');
+            return `${ano}-${mes}-${dia}`;
+        }
+
+        function obterDataAtual() {
+            const agora = new Date();
+            return agora;
+        }
+
+        function testarDatas() {
+            const resultado = document.getElementById('resultado');
+            resultado.innerHTML = '';
+
+            // Método do teste (que funciona)
+            const metodoTeste = new Date().toISOString().split('T')[0];
+            
+            // Método do modal (que não funciona)
+            const metodoModal = formatarData(obterDataAtual());
+
+            resultado.innerHTML = `
+                <h3>Comparação de Métodos:</h3>
+                <p><strong>Método Teste (funciona):</strong> "${metodoTeste}"</p>
+                <p><strong>Método Modal (não funciona):</strong> "${metodoModal}"</p>
+                <p><strong>São iguais?</strong> ${metodoTeste === metodoModal ? '✅ SIM' : '❌ NÃO'}</p>
+                
+                <h3>Teste Completo de Freebet:</h3>
+            `;
+
+            // Criar freebets com ambos os métodos
+            const freebetTeste = {
+                id: 'teste-' + Date.now(),
+                titulo: 'Teste com método que funciona',
+                valor: 50,
+                casaDeApostas: 'Casa Teste',
+                dataExpiracao: '2025-02-15',
+                prejuizoParaAdquirir: 10,
+                requisito: 'Teste',
+                ativa: true,
+                dataAquisicao: metodoTeste
+            };
+
+            const freebetModal = {
+                id: 'modal-' + Date.now(),
+                titulo: 'Teste com método do modal',
+                valor: 75,
+                casaDeApostas: 'Casa Modal',
+                dataExpiracao: '2025-02-15',
+                prejuizoParaAdquirir: 15,
+                requisito: 'Modal',
+                ativa: true,
+                dataAquisicao: metodoModal
+            };
+
+            resultado.innerHTML += `
+                <p><strong>Freebet Teste:</strong> ${JSON.stringify(freebetTeste, null, 2)}</p>
+                <p><strong>Freebet Modal:</strong> ${JSON.stringify(freebetModal, null, 2)}</p>
+            `;
+
+            // Salvar ambas e verificar
+            const chave = 'planilha-arb-freebets-v2';
+            const existentes = JSON.parse(localStorage.getItem(chave) || '[]');
+            
+            existentes.push(freebetTeste);
+            existentes.push(freebetModal);
+            
+            localStorage.setItem(chave, JSON.stringify(existentes));
+
+            resultado.innerHTML += `
+                <p><strong>Total salvo:</strong> ${existentes.length}</p>
+                <p><strong>✅ Ambas salvas com sucesso!</strong></p>
+            `;
+        }
+    </script>
+</body>
+</html>
