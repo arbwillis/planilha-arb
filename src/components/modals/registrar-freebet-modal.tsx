@@ -36,7 +36,13 @@ export function RegistrarFreebetModal({ aberto, onClose }: RegistrarFreebetModal
   };
 
   const handleSalvar = async () => {
+    console.log('🚀 INICIANDO SALVAMENTO DE FREEBET');
+    console.log('📝 Dados do formulário:', {
+      titulo, valor, casaDeApostas, dataExpiracao, dataAquisicao, prejuizoParaAdquirir, requisito
+    });
+
     if (!titulo || !valor || !casaDeApostas || !dataExpiracao || !dataAquisicao || !prejuizoParaAdquirir) {
+      console.log('❌ Campos obrigatórios não preenchidos');
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
@@ -44,17 +50,22 @@ export function RegistrarFreebetModal({ aberto, onClose }: RegistrarFreebetModal
     const valorNumerico = parseFloat(valor.replace(',', '.'));
     const prejuizoNumerico = parseFloat(prejuizoParaAdquirir.replace(',', '.'));
     
+    console.log('🔢 Valores numéricos:', { valorNumerico, prejuizoNumerico });
+    
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
+      console.log('❌ Valor da freebet inválido');
       alert('Por favor, insira um valor válido para a freebet.');
       return;
     }
 
     if (isNaN(prejuizoNumerico) || prejuizoNumerico < 0) {
+      console.log('❌ Prejuízo inválido');
       alert('Por favor, insira um valor válido para o prejuízo de aquisição.');
       return;
     }
 
     setSalvando(true);
+    console.log('⏳ Estado salvando ativado');
 
     try {
       const freebet: Freebet = {
@@ -69,20 +80,40 @@ export function RegistrarFreebetModal({ aberto, onClose }: RegistrarFreebetModal
         dataAquisicao: dataAquisicao
       };
 
+      console.log('📦 Objeto freebet criado:', freebet);
 
+      // Testar localStorage antes de salvar
+      console.log('🧪 Testando localStorage...');
+      const testeKey = 'teste-' + Date.now();
+      localStorage.setItem(testeKey, 'teste');
+      const testeRecuperado = localStorage.getItem(testeKey);
+      localStorage.removeItem(testeKey);
+      console.log('✅ LocalStorage funcionando:', testeRecuperado === 'teste');
+
+      console.log('💾 Chamando salvarFreebet...');
       salvarFreebet(freebet);
+      console.log('✅ salvarFreebet executada com sucesso');
+      
       resetarFormulario();
+      console.log('🔄 Formulário resetado');
+      
       onClose();
+      console.log('🚪 Modal fechado');
       
       // Disparar evento para atualizar componentes
+      console.log('📡 Disparando evento freebetSalva...');
       window.dispatchEvent(new CustomEvent('freebetSalva', { 
         detail: { freebet } 
       }));
+      console.log('✅ Evento disparado com sucesso');
+      
+      console.log('🎉 SALVAMENTO CONCLUÍDO COM SUCESSO!');
     } catch (error) {
-      console.error('Erro ao salvar freebet:', error);
+      console.error('❌ ERRO DURANTE SALVAMENTO:', error);
       alert('Erro ao salvar a freebet. Tente novamente.');
     } finally {
       setSalvando(false);
+      console.log('⏹️ Estado salvando desativado');
     }
   };
 

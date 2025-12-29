@@ -76,3 +76,4 @@ Após gerar todos os ícones, você pode deletar este arquivo:
 ```bash
 rm GENERATE_ICONS.md
 ```
+
