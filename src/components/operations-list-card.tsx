@@ -2,14 +2,16 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { obterOperacoesPorMes, obterDataAtual } from '@/services/storage';
+import { obterOperacoesPorMes, obterDataAtual, excluirOperacao } from '@/services/storage';
 import { calcularDadosMes } from '@/services/calculos';
 import { useEffect, useState, useCallback } from 'react';
 import { Operacao } from '@/types';
-import { TrendingUp, TrendingDown, ArrowUpDown, Search, Filter } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowUpDown, Search, Filter, Pencil, Trash2 } from 'lucide-react';
+import { EditarOperacaoModal } from './modals/editar-operacao-modal';
 
 export function OperationsListCard() {
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
@@ -21,6 +23,10 @@ export function OperationsListCard() {
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroCasa, setFiltroCasa] = useState('todas');
+
+  // Estados do modal de edição
+  const [operacaoEditando, setOperacaoEditando] = useState<Operacao | null>(null);
+  const [modalEditarAberto, setModalEditarAberto] = useState(false);
 
   const carregarDados = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -46,12 +52,12 @@ export function OperationsListCard() {
 
   // Filtrar operações
   useEffect(() => {
-    let operacoesFiltradas = [...operacoes];
+    let resultado = [...operacoes];
 
     // Filtro por texto (título, descrição, casa)
     if (filtroTexto) {
       const texto = filtroTexto.toLowerCase();
-      operacoesFiltradas = operacoesFiltradas.filter(op =>
+      resultado = resultado.filter(op =>
         op.titulo.toLowerCase().includes(texto) ||
         op.descricao?.toLowerCase().includes(texto) ||
         op.casaDeApostas.toLowerCase().includes(texto)
@@ -60,15 +66,15 @@ export function OperationsListCard() {
 
     // Filtro por tipo
     if (filtroTipo !== 'todos') {
-      operacoesFiltradas = operacoesFiltradas.filter(op => op.tipo === filtroTipo);
+      resultado = resultado.filter(op => op.tipo === filtroTipo);
     }
 
     // Filtro por casa de apostas
     if (filtroCasa !== 'todas') {
-      operacoesFiltradas = operacoesFiltradas.filter(op => op.casaDeApostas === filtroCasa);
+      resultado = resultado.filter(op => op.casaDeApostas === filtroCasa);
     }
 
-    setOperacoesFiltradas(operacoesFiltradas);
+    setOperacoesFiltradas(resultado);
   }, [operacoes, filtroTexto, filtroTipo, filtroCasa]);
 
   // Obter casas de apostas únicas para o filtro
@@ -76,28 +82,54 @@ export function OperationsListCard() {
 
   // Escutar eventos de mudanças nos dados
   useEffect(() => {
-    const handleFreebetExcluida = () => {
+    const handleDadosAtualizados = () => {
       carregarDados();
     };
 
-    const handleOperacaoSalva = () => {
-      carregarDados();
-    };
-
-    const handleFreebetSalva = () => {
-      carregarDados();
-    };
-
-    window.addEventListener('freebetExcluida', handleFreebetExcluida);
-    window.addEventListener('operacaoSalva', handleOperacaoSalva);
-    window.addEventListener('freebetSalva', handleFreebetSalva);
+    window.addEventListener('freebetExcluida', handleDadosAtualizados);
+    window.addEventListener('operacaoSalva', handleDadosAtualizados);
+    window.addEventListener('freebetSalva', handleDadosAtualizados);
+    window.addEventListener('operacaoAtualizada', handleDadosAtualizados);
+    window.addEventListener('operacaoExcluida', handleDadosAtualizados);
     
     return () => {
-      window.removeEventListener('freebetExcluida', handleFreebetExcluida);
-      window.removeEventListener('operacaoSalva', handleOperacaoSalva);
-      window.removeEventListener('freebetSalva', handleFreebetSalva);
+      window.removeEventListener('freebetExcluida', handleDadosAtualizados);
+      window.removeEventListener('operacaoSalva', handleDadosAtualizados);
+      window.removeEventListener('freebetSalva', handleDadosAtualizados);
+      window.removeEventListener('operacaoAtualizada', handleDadosAtualizados);
+      window.removeEventListener('operacaoExcluida', handleDadosAtualizados);
     };
   }, [carregarDados]);
+
+  const handleEditarOperacao = (operacao: Operacao) => {
+    setOperacaoEditando(operacao);
+    setModalEditarAberto(true);
+  };
+
+  const handleExcluirOperacao = (operacao: Operacao) => {
+    const tipoFormatado = operacao.tipo === 'lucro' ? 'lucro' : 
+                          operacao.tipo === 'prejuizo' ? 'prejuízo' : 'extração';
+    
+    if (confirm(`Tem certeza que deseja excluir esta operação de ${tipoFormatado}?\n\n"${operacao.titulo}" - R$ ${operacao.valor.toFixed(2)}\n\nEsta ação não pode ser desfeita.`)) {
+      const sucesso = excluirOperacao(operacao.id);
+      
+      if (sucesso) {
+        carregarDados();
+        
+        // Disparar evento para atualizar todos os componentes
+        window.dispatchEvent(new CustomEvent('operacaoExcluida', { 
+          detail: { operacaoId: operacao.id } 
+        }));
+      } else {
+        alert('Erro ao excluir a operação.');
+      }
+    }
+  };
+
+  const handleFecharModalEditar = () => {
+    setModalEditarAberto(false);
+    setOperacaoEditando(null);
+  };
 
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -129,7 +161,7 @@ export function OperationsListCard() {
     }
   };
 
-  const obterCorValor = (tipo: string, valor: number) => {
+  const obterCorValor = (tipo: string) => {
     switch (tipo) {
       case 'lucro':
       case 'extracao':
@@ -183,147 +215,190 @@ export function OperationsListCard() {
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-6">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xl font-bold">
-            Operações de {mesAtual}
-          </CardTitle>
-          <div className="flex gap-3">
-            <Badge 
-              variant="secondary" 
-              className={`text-base px-3 py-2 font-semibold ${
-                lucroMes >= 0 ? 'bg-green-600' : 'bg-red-600'
-              } text-white`}
-            >
-              {formatarMoeda(lucroMes)}
-            </Badge>
-            <Badge 
-              variant="secondary" 
-              className="text-base px-3 py-2 font-semibold"
-              style={{ backgroundColor: 'oklch(0.45 0.15 270)', color: 'white' }}
-            >
-              {operacoes.length} operações
-            </Badge>
+    <>
+      <Card className="w-full">
+        <CardHeader className="pb-6">
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-xl font-bold">
+              Operações de {mesAtual}
+            </CardTitle>
+            <div className="flex gap-3">
+              <Badge 
+                variant="secondary" 
+                className={`text-base px-3 py-2 font-semibold ${
+                  lucroMes >= 0 ? 'bg-green-600' : 'bg-red-600'
+                } text-white`}
+              >
+                {formatarMoeda(lucroMes)}
+              </Badge>
+              <Badge 
+                variant="secondary" 
+                className="text-base px-3 py-2 font-semibold"
+                style={{ backgroundColor: 'oklch(0.45 0.15 270)', color: 'white' }}
+              >
+                {operacoes.length} operações
+              </Badge>
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {/* Filtros */}
-        <div className="mb-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Filter className="h-4 w-4" />
-            Filtros
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Filtro por texto */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por título, descrição..."
-                value={filtroTexto}
-                onChange={(e) => setFiltroTexto(e.target.value)}
-                className="pl-10"
-              />
+        </CardHeader>
+        <CardContent className="pt-0">
+          {/* Filtros */}
+          <div className="mb-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Filter className="h-4 w-4" />
+              Filtros
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Filtro por texto */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por título, descrição..."
+                  value={filtroTexto}
+                  onChange={(e) => setFiltroTexto(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Filtro por tipo */}
+              <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  <SelectItem value="lucro">Lucro</SelectItem>
+                  <SelectItem value="prejuizo">Prejuízo</SelectItem>
+                  <SelectItem value="extracao">Extração</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Filtro por casa de apostas */}
+              <Select value={filtroCasa} onValueChange={setFiltroCasa}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por casa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as casas</SelectItem>
+                  {casasUnicas.map(casa => (
+                    <SelectItem key={casa} value={casa}>{casa}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Filtro por tipo */}
-            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os tipos</SelectItem>
-                <SelectItem value="lucro">Lucro</SelectItem>
-                <SelectItem value="prejuizo">Prejuízo</SelectItem>
-                <SelectItem value="extracao">Extração</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Filtro por casa de apostas */}
-            <Select value={filtroCasa} onValueChange={setFiltroCasa}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por casa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as casas</SelectItem>
-                {casasUnicas.map(casa => (
-                  <SelectItem key={casa} value={casa}>{casa}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Contador de resultados */}
+            {operacoesFiltradas.length !== operacoes.length && (
+              <div className="text-sm text-muted-foreground">
+                Mostrando {operacoesFiltradas.length} de {operacoes.length} operações
+              </div>
+            )}
           </div>
 
-          {/* Contador de resultados */}
-          {operacoesFiltradas.length !== operacoes.length && (
-            <div className="text-sm text-muted-foreground">
-              Mostrando {operacoesFiltradas.length} de {operacoes.length} operações
+          {operacoes.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <p>Nenhuma operação encontrada neste mês.</p>
+              <p className="text-sm mt-2">Registre uma operação para começar!</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead className="hidden md:table-cell">Casa</TableHead>
+                    <TableHead className="hidden lg:table-cell">Descrição</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="text-center w-24">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {operacoesFiltradas.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        Nenhuma operação encontrada com os filtros aplicados.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    operacoesFiltradas.map((operacao) => (
+                    <TableRow key={operacao.id} className="hover:bg-muted/50">
+                      <TableCell className="text-sm">
+                        {formatarDataHora(operacao.data)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {obterIconeTipo(operacao.tipo)}
+                          <span className="text-sm font-medium">
+                            {obterTipoFormatado(operacao.tipo)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="truncate max-w-[150px]" title={operacao.titulo}>
+                          {operacao.titulo}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="truncate max-w-[100px]" title={operacao.casaDeApostas}>
+                          {operacao.casaDeApostas}
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-xs hidden lg:table-cell">
+                        <div className="truncate text-sm text-muted-foreground">
+                          {operacao.descricao || '-'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className={`font-semibold ${obterCorValor(operacao.tipo)}`}>
+                          {operacao.tipo === 'prejuizo' ? '-' : '+'}{formatarMoeda(operacao.valor)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {operacao.tipo !== 'extracao' ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditarOperacao(operacao)}
+                              className="h-8 w-8 p-0 hover:bg-blue-100 dark:hover:bg-blue-900"
+                              title="Editar valor"
+                            >
+                              <Pencil className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleExcluirOperacao(operacao)}
+                              className="h-8 w-8 p-0 hover:bg-red-100 dark:hover:bg-red-900"
+                              title="Excluir operação"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {operacoes.length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground">
-            <p>Nenhuma operação encontrada neste mês.</p>
-            <p className="text-sm mt-2">Registre uma operação para começar!</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Casa</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {operacoesFiltradas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                      Nenhuma operação encontrada com os filtros aplicados.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  operacoesFiltradas.map((operacao) => (
-                  <TableRow key={operacao.id}>
-                    <TableCell className="text-sm">
-                      {formatarDataHora(operacao.data)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {obterIconeTipo(operacao.tipo)}
-                        <span className="text-sm font-medium">
-                          {obterTipoFormatado(operacao.tipo)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {operacao.titulo}
-                    </TableCell>
-                    <TableCell>{operacao.casaDeApostas}</TableCell>
-                    <TableCell className="max-w-xs">
-                      <div className="truncate text-sm text-muted-foreground">
-                        {operacao.descricao || '-'}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className={`font-semibold ${obterCorValor(operacao.tipo, operacao.valor)}`}>
-                        {operacao.tipo === 'prejuizo' ? '-' : '+'}{formatarMoeda(operacao.valor)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Modal de Edição */}
+      <EditarOperacaoModal
+        operacao={operacaoEditando}
+        aberto={modalEditarAberto}
+        onClose={handleFecharModalEditar}
+        onSucesso={carregarDados}
+      />
+    </>
   );
 }

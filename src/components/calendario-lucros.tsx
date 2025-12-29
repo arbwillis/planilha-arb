@@ -36,17 +36,6 @@ export function CalendarioLucros({ onMesChange, mesAtual: mesAtualProp }: Calend
         const data = new Date(ano, mes, dia);
         const chaveData = formatarData(data);
         const dadosDia = calcularDadosDia(data);
-        
-        // Log temporário para debug - apenas dias com freebets
-        if (dadosDia.totalFreebets > 0) {
-          console.log(`📅 CALENDÁRIO - Dia ${dia}/${mes + 1}/${ano}:`, {
-            chaveData,
-            totalFreebets: dadosDia.totalFreebets,
-            quantidadeOperacoes: dadosDia.quantidadeOperacoes,
-            lucroLiquido: dadosDia.lucroLiquido
-          });
-        }
-        
         novosDados[chaveData] = dadosDia;
       }
 
@@ -67,36 +56,24 @@ export function CalendarioLucros({ onMesChange, mesAtual: mesAtualProp }: Calend
   // Escutar eventos de mudanças nos dados
   useEffect(() => {
     const recarregarDados = () => {
-      console.log('📅 CALENDÁRIO - Limpando cache e recarregando');
       setDadosPorDia({});
       setTimeout(() => {
         carregarDadosDoMes();
       }, 100);
     };
 
-    const handleFreebetExcluida = (event: any) => {
-      console.log('📅 CALENDÁRIO - Recebeu evento freebetExcluida:', event.detail);
-      recarregarDados();
-    };
-
-    const handleOperacaoSalva = (event: any) => {
-      console.log('📅 CALENDÁRIO - Recebeu evento operacaoSalva:', event.detail);
-      recarregarDados();
-    };
-
-    const handleFreebetSalva = (event: any) => {
-      console.log('📅 CALENDÁRIO - Recebeu evento freebetSalva:', event.detail);
-      recarregarDados();
-    };
-
-    window.addEventListener('freebetExcluida', handleFreebetExcluida);
-    window.addEventListener('operacaoSalva', handleOperacaoSalva);
-    window.addEventListener('freebetSalva', handleFreebetSalva);
+    window.addEventListener('freebetExcluida', recarregarDados);
+    window.addEventListener('operacaoSalva', recarregarDados);
+    window.addEventListener('freebetSalva', recarregarDados);
+    window.addEventListener('operacaoAtualizada', recarregarDados);
+    window.addEventListener('operacaoExcluida', recarregarDados);
     
     return () => {
-      window.removeEventListener('freebetExcluida', handleFreebetExcluida);
-      window.removeEventListener('operacaoSalva', handleOperacaoSalva);
-      window.removeEventListener('freebetSalva', handleFreebetSalva);
+      window.removeEventListener('freebetExcluida', recarregarDados);
+      window.removeEventListener('operacaoSalva', recarregarDados);
+      window.removeEventListener('freebetSalva', recarregarDados);
+      window.removeEventListener('operacaoAtualizada', recarregarDados);
+      window.removeEventListener('operacaoExcluida', recarregarDados);
     };
   }, [carregarDadosDoMes]);
 

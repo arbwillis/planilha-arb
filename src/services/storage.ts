@@ -107,6 +107,56 @@ export const obterOperacoesPorMes = (ano: number, mes: number): Operacao[] => {
   });
 };
 
+// Atualizar valor de uma operação
+export const atualizarOperacao = (operacaoId: string, novoValor: number): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    const operacoes = obterOperacoes();
+    const index = operacoes.findIndex(op => op.id === operacaoId);
+    
+    if (index === -1) return false;
+    
+    operacoes[index].valor = novoValor;
+    
+    const dataWithTimestamp = {
+      data: operacoes,
+      timestamp: new Date().toISOString(),
+      version: '2.0'
+    };
+    localStorage.setItem('planilha-arb-operacoes-v2', JSON.stringify(dataWithTimestamp));
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao atualizar operação:', error);
+    return false;
+  }
+};
+
+// Excluir uma operação
+export const excluirOperacao = (operacaoId: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    const operacoes = obterOperacoes();
+    const operacoesAtualizadas = operacoes.filter(op => op.id !== operacaoId);
+    
+    if (operacoesAtualizadas.length === operacoes.length) return false;
+    
+    const dataWithTimestamp = {
+      data: operacoesAtualizadas,
+      timestamp: new Date().toISOString(),
+      version: '2.0'
+    };
+    localStorage.setItem('planilha-arb-operacoes-v2', JSON.stringify(dataWithTimestamp));
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao excluir operação:', error);
+    return false;
+  }
+};
+
 export const obterOperacoesPorDia = (data: string): Operacao[] => {
   const operacoes = obterOperacoes();
   return operacoes.filter(op => {

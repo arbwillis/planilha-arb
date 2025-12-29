@@ -23,7 +23,8 @@ const estadoInicialPunter: DadosPunter = {
   configuracoes: {
     exibirGestaoPunter: false,
     valorBanca: 0,
-    quantidadeUnidades: 100
+    quantidadeUnidades: 100,
+    bancaSurebet: 0
   },
   estatisticas: {
     totalApostas: 0,

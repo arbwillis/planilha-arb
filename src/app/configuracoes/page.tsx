@@ -7,15 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Settings, DollarSign, Target, HardDrive, Trash2, Database } from 'lucide-react';
+import { ArrowLeft, Settings, DollarSign, Target, HardDrive, Trash2, Database, TrendingUp, Calendar } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { BackupRestoreModal } from '@/components/backup-restore-modal';
 import { DataManagementModal } from '@/components/data-management-modal';
+import { atualizarBancaAtual, obterBancaAtual, formatarMesAno } from '@/services/banca-mensal';
 
 interface Configuracoes {
   exibirGestaoPunter: boolean;
   valorBanca: number;
   quantidadeUnidades: 20 | 50 | 100;
+  bancaSurebet: number;
 }
 
 interface DadosPunter {
@@ -30,7 +32,8 @@ const obterConfiguracoes = (): Configuracoes => {
     return { 
       exibirGestaoPunter: false,
       valorBanca: 0,
-      quantidadeUnidades: 100
+      quantidadeUnidades: 100,
+      bancaSurebet: 0
     };
   }
   
@@ -38,11 +41,11 @@ const obterConfiguracoes = (): Configuracoes => {
     const configuracoes = localStorage.getItem(CONFIGURACOES_KEY);
     if (configuracoes) {
       const parsed = JSON.parse(configuracoes);
-      // Garantir compatibilidade com versões anteriores
       return {
         exibirGestaoPunter: parsed.exibirGestaoPunter || false,
         valorBanca: parsed.valorBanca || 0,
-        quantidadeUnidades: parsed.quantidadeUnidades || 100
+        quantidadeUnidades: parsed.quantidadeUnidades || 100,
+        bancaSurebet: parsed.bancaSurebet || 0
       };
     }
   } catch (error) {
@@ -52,7 +55,8 @@ const obterConfiguracoes = (): Configuracoes => {
   return { 
     exibirGestaoPunter: false,
     valorBanca: 0,
-    quantidadeUnidades: 100
+    quantidadeUnidades: 100,
+    bancaSurebet: 0
   };
 };
 
@@ -61,14 +65,12 @@ const salvarConfiguracoes = (configuracoes: Configuracoes): void => {
   
   try {
     localStorage.setItem(CONFIGURACOES_KEY, JSON.stringify(configuracoes));
-    // Disparar evento para atualizar outros componentes
     window.dispatchEvent(new CustomEvent('configuracoesAtualizadas', { detail: configuracoes }));
   } catch (error) {
     console.error('Erro ao salvar configurações:', error);
   }
 };
 
-// Função para calcular o valor da unidade
 const calcularValorUnidade = (valorBanca: number, quantidadeUnidades: number): number => {
   if (valorBanca <= 0 || quantidadeUnidades <= 0) return 0;
   return valorBanca / quantidadeUnidades;
@@ -79,17 +81,26 @@ export default function ConfiguracoesPage() {
   const [configuracoes, setConfiguracoes] = useState<Configuracoes>({ 
     exibirGestaoPunter: false,
     valorBanca: 0,
-    quantidadeUnidades: 100
+    quantidadeUnidades: 100,
+    bancaSurebet: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [valorBancaInput, setValorBancaInput] = useState('');
+  const [bancaSurebetInput, setBancaSurebetInput] = useState('');
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isDataManagementOpen, setIsDataManagementOpen] = useState(false);
 
+  // Mês atual para exibição
+  const mesAtualTexto = formatarMesAno(new Date().getFullYear(), new Date().getMonth());
+
   useEffect(() => {
     const configs = obterConfiguracoes();
-    setConfiguracoes(configs);
+    // Usar banca do serviço de banca mensal
+    const bancaAtual = obterBancaAtual();
+    
+    setConfiguracoes({ ...configs, bancaSurebet: bancaAtual || configs.bancaSurebet });
     setValorBancaInput(configs.valorBanca > 0 ? configs.valorBanca.toString() : '');
+    setBancaSurebetInput(bancaAtual > 0 ? bancaAtual.toString() : (configs.bancaSurebet > 0 ? configs.bancaSurebet.toString() : ''));
     setIsLoading(false);
   }, []);
 
@@ -114,7 +125,21 @@ export default function ConfiguracoesPage() {
     salvarConfiguracoes(novasConfiguracoes);
   };
 
+  const handleBancaSurebetChange = (value: string) => {
+    setBancaSurebetInput(value);
+    const valorNumerico = parseFloat(value.replace(',', '.')) || 0;
+    
+    // Atualizar configurações locais
+    const novasConfiguracoes = { ...configuracoes, bancaSurebet: valorNumerico };
+    setConfiguracoes(novasConfiguracoes);
+    salvarConfiguracoes(novasConfiguracoes);
+    
+    // Salvar no serviço de banca mensal (registra para o mês atual)
+    atualizarBancaAtual(valorNumerico);
+  };
+
   const valorUnidade = calcularValorUnidade(configuracoes.valorBanca, configuracoes.quantidadeUnidades);
+  
   const formatarMoeda = (valor: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -155,6 +180,63 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
 
+        {/* Banca Surebet Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Banca de Surebets
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Defina o valor da sua banca para acompanhar a valorização/desvalorização mensal e a porcentagem de retorno sobre o capital investido.
+            </p>
+
+            {/* Indicador do mês */}
+            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">
+                Banca para: <span className="font-semibold text-blue-500">{mesAtualTexto}</span>
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="banca-surebet" className="text-sm font-medium">
+                Valor da Banca (R$) - Opcional
+              </Label>
+              <Input
+                id="banca-surebet"
+                type="text"
+                placeholder="Ex: 5000,00"
+                value={bancaSurebetInput}
+                onChange={(e) => handleBancaSurebetChange(e.target.value)}
+                className="text-base"
+              />
+              <p className="text-xs text-muted-foreground">
+                Este valor será registrado como a banca de {mesAtualTexto}. Meses anteriores mantêm seus próprios registros.
+              </p>
+            </div>
+
+            {configuracoes.bancaSurebet > 0 && (
+              <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-blue-500" />
+                    <span className="font-medium">Banca de {mesAtualTexto}:</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-500">
+                    {formatarMoeda(configuracoes.bancaSurebet)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  As métricas de valorização serão exibidas no balanço financeiro do mês correspondente.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Configurações Card */}
         <Card>
           <CardHeader>
@@ -191,7 +273,7 @@ export default function ConfiguracoesPage() {
                 <div className="space-y-4 pt-4 border-t border-muted">
                   <div className="flex items-center gap-2 mb-3">
                     <Target className="h-4 w-4 text-primary" />
-                    <h4 className="text-sm font-semibold">Configuração da Banca</h4>
+                    <h4 className="text-sm font-semibold">Configuração da Banca Punter</h4>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -233,18 +315,18 @@ export default function ConfiguracoesPage() {
 
                   {/* Valor da Unidade Calculado */}
                   {configuracoes.valorBanca > 0 && (
-                    <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-primary" />
+                          <DollarSign className="h-4 w-4 text-blue-500" />
                           <span className="text-sm font-medium">Valor da Unidade:</span>
                         </div>
-                        <span className="text-sm font-bold text-primary">
+                        <span className="text-sm font-bold text-blue-500">
                           {formatarMoeda(valorUnidade)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Calculado automaticamente: {formatarMoeda(configuracoes.valorBanca)} ÷ {configuracoes.quantidadeUnidades} unidades
+                        Calculado: {formatarMoeda(configuracoes.valorBanca)} ÷ {configuracoes.quantidadeUnidades} unidades
                       </p>
                     </div>
                   )}
@@ -298,8 +380,8 @@ export default function ConfiguracoesPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              As configurações são salvas localmente no seu navegador. Ao ativar ou desativar funcionalidades, 
-              as mudanças serão aplicadas imediatamente na interface do aplicativo.
+              As configurações são salvas localmente no seu navegador. A banca de surebets é salva por mês, 
+              permitindo acompanhar a evolução do seu capital ao longo do tempo.
             </p>
           </CardContent>
         </Card>

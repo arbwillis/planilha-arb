@@ -79,8 +79,8 @@ export function RegistrarApostaPunterModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!evento.trim() || !mercado.trim() || !odd.trim() || (!valorAposta.trim() && !unidades.trim())) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
+    if (!odd.trim() || (!valorAposta.trim() && !unidades.trim())) {
+      alert('Por favor, preencha a odd e o valor da aposta ou unidades.');
       return;
     }
 
@@ -171,12 +171,12 @@ export function RegistrarApostaPunterModal({
           {/* Evento */}
           <div className="space-y-2">
             <Label htmlFor="evento" className="text-sm font-medium">
-              Evento *
+              Evento
             </Label>
             <Input
               id="evento"
               type="text"
-              placeholder="Ex: Flamengo x Palmeiras"
+              placeholder="Ex: Flamengo x Palmeiras (opcional)"
               value={evento}
               onChange={(e) => setEvento(e.target.value)}
               disabled={isLoading}
@@ -187,12 +187,12 @@ export function RegistrarApostaPunterModal({
           {/* Mercado */}
           <div className="space-y-2">
             <Label htmlFor="mercado" className="text-sm font-medium">
-              Mercado *
+              Mercado
             </Label>
             <Input
               id="mercado"
               type="text"
-              placeholder="Ex: Vitória do Flamengo, Over 2.5 gols"
+              placeholder="Ex: Vitória do Flamengo (opcional)"
               value={mercado}
               onChange={(e) => setMercado(e.target.value)}
               disabled={isLoading}

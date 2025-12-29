@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { calcularDadosMes } from '@/services/calculos';
+import { obterBancaDoMes } from '@/services/banca-mensal';
 import { DadosMes } from '@/types';
-import { TrendingUp, TrendingDown, Activity, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Target, Wallet, Percent } from 'lucide-react';
 
 interface ResumoMensalProps {
   mesSelecionado?: Date;
@@ -18,12 +19,20 @@ export function ResumoMensal({ mesSelecionado }: ResumoMensalProps) {
     quantidadeOperacoes: 0,
     mediaExtracao: 0
   });
+  const [bancaDoMes, setBancaDoMes] = useState(0);
 
   const carregarDados = useCallback(() => {
     if (typeof window !== 'undefined') {
       const dataReferencia = mesSelecionado || new Date();
-      const dados = calcularDadosMes(dataReferencia.getFullYear(), dataReferencia.getMonth());
+      const ano = dataReferencia.getFullYear();
+      const mes = dataReferencia.getMonth();
+      
+      const dados = calcularDadosMes(ano, mes);
       setDadosMes(dados);
+      
+      // Obter banca do mês específico
+      const banca = obterBancaDoMes(ano, mes);
+      setBancaDoMes(banca);
     }
   }, [mesSelecionado]);
 
@@ -33,29 +42,22 @@ export function ResumoMensal({ mesSelecionado }: ResumoMensalProps) {
 
   // Escutar eventos de mudanças nos dados
   useEffect(() => {
-    const handleFreebetExcluida = (event: any) => {
-      console.log('📊 RESUMO MENSAL - Recebeu evento freebetExcluida:', event.detail);
-      carregarDados();
-    };
-
-    const handleOperacaoSalva = (event: any) => {
-      console.log('📊 RESUMO MENSAL - Recebeu evento operacaoSalva:', event.detail);
-      carregarDados();
-    };
-
-    const handleFreebetSalva = (event: any) => {
-      console.log('📊 RESUMO MENSAL - Recebeu evento freebetSalva:', event.detail);
-      carregarDados();
-    };
-
-    window.addEventListener('freebetExcluida', handleFreebetExcluida);
-    window.addEventListener('operacaoSalva', handleOperacaoSalva);
-    window.addEventListener('freebetSalva', handleFreebetSalva);
+    window.addEventListener('freebetExcluida', carregarDados);
+    window.addEventListener('operacaoSalva', carregarDados);
+    window.addEventListener('freebetSalva', carregarDados);
+    window.addEventListener('operacaoAtualizada', carregarDados);
+    window.addEventListener('operacaoExcluida', carregarDados);
+    window.addEventListener('configuracoesAtualizadas', carregarDados);
+    window.addEventListener('bancaAtualizada', carregarDados);
     
     return () => {
-      window.removeEventListener('freebetExcluida', handleFreebetExcluida);
-      window.removeEventListener('operacaoSalva', handleOperacaoSalva);
-      window.removeEventListener('freebetSalva', handleFreebetSalva);
+      window.removeEventListener('freebetExcluida', carregarDados);
+      window.removeEventListener('operacaoSalva', carregarDados);
+      window.removeEventListener('freebetSalva', carregarDados);
+      window.removeEventListener('operacaoAtualizada', carregarDados);
+      window.removeEventListener('operacaoExcluida', carregarDados);
+      window.removeEventListener('configuracoesAtualizadas', carregarDados);
+      window.removeEventListener('bancaAtualizada', carregarDados);
     };
   }, [carregarDados]);
 
@@ -70,11 +72,20 @@ export function ResumoMensal({ mesSelecionado }: ResumoMensalProps) {
     return `${valor.toFixed(1)}%`;
   };
 
+  const formatarPorcentagemComSinal = (valor: number) => {
+    const sinal = valor >= 0 ? '+' : '';
+    return `${sinal}${valor.toFixed(2)}%`;
+  };
+
   const dataReferencia = mesSelecionado || new Date();
   const mesAtual = dataReferencia.toLocaleDateString('pt-BR', { 
     month: 'long', 
     year: 'numeric' 
   });
+
+  // Calcular métricas da banca usando a banca do mês específico
+  const porcentagemSobreBanca = bancaDoMes > 0 ? (dadosMes.lucroLiquido / bancaDoMes) * 100 : 0;
+  const valorizacaoBanca = dadosMes.lucroLiquido;
 
   const estatisticas = [
     {
@@ -149,6 +160,62 @@ export function ResumoMensal({ mesSelecionado }: ResumoMensalProps) {
             );
           })}
         </div>
+
+        {/* Métricas da Banca - Só aparece se a banca do mês estiver configurada */}
+        {bancaDoMes > 0 && (
+          <div className="mt-6 p-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Wallet className="h-5 w-5 text-blue-500" />
+              <h4 className="font-semibold text-center">Desempenho da Banca</h4>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-background/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Banca do Mês</p>
+                </div>
+                <p className="text-xl font-bold text-blue-500">
+                  {formatarMoeda(bancaDoMes)}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-background/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  <Percent className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Retorno sobre Banca</p>
+                </div>
+                <p className={`text-xl font-bold ${porcentagemSobreBanca >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {formatarPorcentagemComSinal(porcentagemSobreBanca)}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-background/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  {valorizacaoBanca >= 0 ? (
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {valorizacaoBanca >= 0 ? 'Valorização' : 'Desvalorização'}
+                  </p>
+                </div>
+                <p className={`text-xl font-bold ${valorizacaoBanca >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {valorizacaoBanca >= 0 ? '+' : ''}{formatarMoeda(valorizacaoBanca)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Banca Atual: <span className={`font-bold ${valorizacaoBanca >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {formatarMoeda(bancaDoMes + valorizacaoBanca)}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Informações Adicionais */}
         <div className="mt-8 p-6 bg-muted/30 rounded-lg">
