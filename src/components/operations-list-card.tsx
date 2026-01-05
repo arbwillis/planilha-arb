@@ -10,8 +10,9 @@ import { obterOperacoesPorMes, obterDataAtual, excluirOperacao } from '@/service
 import { calcularDadosMes } from '@/services/calculos';
 import { useEffect, useState, useCallback } from 'react';
 import { Operacao } from '@/types';
-import { TrendingUp, TrendingDown, ArrowUpDown, Search, Filter, Pencil, Trash2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowUpDown, Search, Filter, Pencil, Trash2, Eye } from 'lucide-react';
 import { EditarOperacaoModal } from './modals/editar-operacao-modal';
+import { DetalhesExtracaoModal } from './modals/detalhes-extracao-modal';
 
 export function OperationsListCard() {
   const [operacoes, setOperacoes] = useState<Operacao[]>([]);
@@ -27,6 +28,10 @@ export function OperationsListCard() {
   // Estados do modal de edição
   const [operacaoEditando, setOperacaoEditando] = useState<Operacao | null>(null);
   const [modalEditarAberto, setModalEditarAberto] = useState(false);
+
+  // Estados do modal de detalhes de extração
+  const [operacaoDetalhes, setOperacaoDetalhes] = useState<Operacao | null>(null);
+  const [modalDetalhesAberto, setModalDetalhesAberto] = useState(false);
 
   const carregarDados = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -129,6 +134,16 @@ export function OperationsListCard() {
   const handleFecharModalEditar = () => {
     setModalEditarAberto(false);
     setOperacaoEditando(null);
+  };
+
+  const handleVerDetalhesExtracao = (operacao: Operacao) => {
+    setOperacaoDetalhes(operacao);
+    setModalDetalhesAberto(true);
+  };
+
+  const handleFecharModalDetalhes = () => {
+    setModalDetalhesAberto(false);
+    setOperacaoDetalhes(null);
   };
 
   const formatarMoeda = (valor: number) => {
@@ -357,7 +372,19 @@ export function OperationsListCard() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {operacao.tipo !== 'extracao' ? (
+                        {operacao.tipo === 'extracao' ? (
+                          <div className="flex items-center justify-center">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleVerDetalhesExtracao(operacao)}
+                              className="h-8 w-8 p-0 hover:bg-violet-100 dark:hover:bg-violet-900"
+                              title="Ver detalhes da extração"
+                            >
+                              <Eye className="h-4 w-4" style={{ color: 'oklch(0.6 0.25 240)' }} />
+                            </Button>
+                          </div>
+                        ) : (
                           <div className="flex items-center justify-center gap-1">
                             <Button
                               size="sm"
@@ -378,8 +405,6 @@ export function OperationsListCard() {
                               <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
                           </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -398,6 +423,13 @@ export function OperationsListCard() {
         aberto={modalEditarAberto}
         onClose={handleFecharModalEditar}
         onSucesso={carregarDados}
+      />
+
+      {/* Modal de Detalhes da Extração */}
+      <DetalhesExtracaoModal
+        operacao={operacaoDetalhes}
+        aberto={modalDetalhesAberto}
+        onClose={handleFecharModalDetalhes}
       />
     </>
   );

@@ -77,3 +77,4 @@ Após gerar todos os ícones, você pode deletar este arquivo:
 rm GENERATE_ICONS.md
 ```
 
+

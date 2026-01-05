@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { obterApostasPunter } from '@/services/punter-storage';
+import { Badge } from '@/components/ui/badge';
+import { ChevronLeft, ChevronRight, Calendar, TrendingUp, TrendingDown, Target, BarChart3 } from 'lucide-react';
+import { obterApostasPunter, type ApostaPunter } from '@/services/punter-storage';
 import { obterConfiguracoes, calcularValorUnidade } from '@/app/configuracoes/page';
+import { obterDadosDoMesPunter, salvarDadosMensaisPunter, mesFinalizado, type DadosMensaisPunter } from '@/services/punter-mensal';
 
 interface DadosDiaPunter {
   lucro: number;
@@ -13,9 +15,21 @@ interface DadosDiaPunter {
   unidades: number;
 }
 
+interface ResumoMesPunter {
+  totalApostas: number;
+  apostasGanhas: number;
+  apostasPerdidas: number;
+  taxaAcerto: number;
+  lucroTotal: number;
+  roi: number;
+  unidadesTotais: number;
+}
+
 export function CalendarioPunter() {
   const [mesAtual, setMesAtual] = useState(new Date());
   const [dadosDoMes, setDadosDoMes] = useState<Record<string, DadosDiaPunter>>({});
+  const [resumoMes, setResumoMes] = useState<ResumoMesPunter | null>(null);
+  const [dadosSalvos, setDadosSalvos] = useState<DadosMensaisPunter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const formatarMoeda = (valor: number) => {
@@ -52,26 +66,35 @@ export function CalendarioPunter() {
       const configs = obterConfiguracoes();
       const valorUnidade = calcularValorUnidade(configs.valorBanca, configs.quantidadeUnidades);
       
-      const mesAno = `${mesAtual.getFullYear()}-${String(mesAtual.getMonth() + 1).padStart(2, '0')}`;
+      const ano = mesAtual.getFullYear();
+      const mes = mesAtual.getMonth();
+      const mesAno = `${ano}-${String(mes + 1).padStart(2, '0')}`;
+      
+      // Verificar se há dados salvos para este mês
+      const dadosMesSalvo = obterDadosDoMesPunter(ano, mes);
+      setDadosSalvos(dadosMesSalvo);
       
       // Filtrar apostas do mês com validação de data
-      const apostasDoMes = apostas.filter(aposta => {
+      const apostasDoMes = apostas.filter((aposta: ApostaPunter) => {
         try {
           if (!aposta.data || typeof aposta.data !== 'string') {
-            console.warn('Data de aposta inválida:', aposta);
             return false;
           }
           return aposta.data.startsWith(mesAno);
         } catch (error) {
-          console.error('Erro ao filtrar aposta por data:', error);
           return false;
         }
       });
       
       // Agrupar por dia com validação de dados
       const dadosPorDia: Record<string, DadosDiaPunter> = {};
+      let lucroTotal = 0;
+      let apostasGanhas = 0;
+      let apostasPerdidas = 0;
+      let unidadesTotais = 0;
+      let valorTotalApostado = 0;
       
-      apostasDoMes.forEach(aposta => {
+      apostasDoMes.forEach((aposta: ApostaPunter) => {
         try {
           const dia = aposta.data;
           if (!dadosPorDia[dia]) {
@@ -85,22 +108,70 @@ export function CalendarioPunter() {
             ? aposta.lucroPerda 
             : 0;
           dadosPorDia[dia].lucro += lucroPerda;
+          lucroTotal += lucroPerda;
           
           // Validar unidades
           const unidades = typeof aposta.unidades === 'number' && !isNaN(aposta.unidades) 
             ? aposta.unidades 
             : 0;
           dadosPorDia[dia].unidades += unidades;
+          unidadesTotais += unidades;
+          
+          // Contar resultados
+          if (aposta.resultado === 'ganhou') apostasGanhas++;
+          if (aposta.resultado === 'perdeu') apostasPerdidas++;
+          
+          // Valor apostado
+          valorTotalApostado += aposta.valorAposta || 0;
         } catch (error) {
           console.error('Erro ao processar aposta:', error);
         }
       });
-
+      
+      // Calcular resumo do mês
+      const totalApostas = apostasDoMes.length;
+      const taxaAcerto = (apostasGanhas + apostasPerdidas) > 0 
+        ? (apostasGanhas / (apostasGanhas + apostasPerdidas)) * 100 
+        : 0;
+      const roi = valorTotalApostado > 0 ? (lucroTotal / valorTotalApostado) * 100 : 0;
+      
+      const resumo: ResumoMesPunter = {
+        totalApostas,
+        apostasGanhas,
+        apostasPerdidas,
+        taxaAcerto: Math.round(taxaAcerto * 100) / 100,
+        lucroTotal,
+        roi: Math.round(roi * 100) / 100,
+        unidadesTotais: Math.round(unidadesTotais * 100) / 100
+      };
+      
+      setResumoMes(resumo);
       setDadosDoMes(dadosPorDia);
+      
+      // Se o mês já passou e não há dados salvos, salvar automaticamente
+      if (mesFinalizado(ano, mes) && !dadosMesSalvo && totalApostas > 0) {
+        const unidadesPositivasNegativas = valorUnidade > 0 ? lucroTotal / valorUnidade : 0;
+        
+        salvarDadosMensaisPunter({
+          mesAno,
+          bancaInicial: configs.valorBanca,
+          bancaFinal: configs.valorBanca + lucroTotal,
+          lucroTotal,
+          totalApostas,
+          apostasGanhas,
+          apostasPerdidas,
+          taxaAcerto: Math.round(taxaAcerto * 100) / 100,
+          roi: Math.round(roi * 100) / 100,
+          unidadesTotaisApostadas: Math.round(unidadesTotais * 100) / 100,
+          unidadesPositivasNegativas: Math.round(unidadesPositivasNegativas * 100) / 100
+        });
+      }
+      
       setIsLoading(false);
     } catch (error) {
       console.error('Erro ao calcular dados do mês punter:', error);
       setDadosDoMes({});
+      setResumoMes(null);
       setIsLoading(false);
     }
   }, [mesAtual]);
@@ -215,6 +286,22 @@ export function CalendarioPunter() {
     );
   }
 
+  // Usar dados salvos para meses finalizados, ou resumo atual para mês corrente
+  const dadosParaExibir = dadosSalvos || (resumoMes ? {
+    totalApostas: resumoMes.totalApostas,
+    apostasGanhas: resumoMes.apostasGanhas,
+    apostasPerdidas: resumoMes.apostasPerdidas,
+    taxaAcerto: resumoMes.taxaAcerto,
+    lucroTotal: resumoMes.lucroTotal,
+    roi: resumoMes.roi,
+    unidadesTotaisApostadas: resumoMes.unidadesTotais
+  } : null);
+
+  const formatarPercentual = (valor: number) => {
+    const sinal = valor >= 0 ? '+' : '';
+    return `${sinal}${valor.toFixed(2)}%`;
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -246,7 +333,75 @@ export function CalendarioPunter() {
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-6">
+        {/* Resumo Mensal */}
+        {dadosParaExibir && dadosParaExibir.totalApostas > 0 && (
+          <div className="p-4 rounded-lg bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/20">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <BarChart3 className="h-5 w-5 text-emerald-500" />
+              <h4 className="font-semibold text-center">
+                Resumo de {obterNomeMes(mesAtual)}
+                {dadosSalvos && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    Salvo
+                  </Badge>
+                )}
+              </h4>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Lucro Total */}
+              <div className="text-center p-3 bg-background/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  {dadosParaExibir.lucroTotal >= 0 ? (
+                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Lucro Total</p>
+                <p className={`text-lg font-bold ${dadosParaExibir.lucroTotal >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {formatarMoeda(dadosParaExibir.lucroTotal)}
+                </p>
+              </div>
+              
+              {/* ROI */}
+              <div className="text-center p-3 bg-background/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Target className="h-4 w-4 text-blue-500" />
+                </div>
+                <p className="text-xs text-muted-foreground">ROI</p>
+                <p className={`text-lg font-bold ${dadosParaExibir.roi >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {formatarPercentual(dadosParaExibir.roi)}
+                </p>
+              </div>
+              
+              {/* Taxa de Acerto */}
+              <div className="text-center p-3 bg-background/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Taxa de Acerto</p>
+                <p className="text-lg font-bold">
+                  {dadosParaExibir.taxaAcerto.toFixed(1)}%
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {dadosParaExibir.apostasGanhas}W / {dadosParaExibir.apostasPerdidas}L
+                </p>
+              </div>
+              
+              {/* Total de Apostas */}
+              <div className="text-center p-3 bg-background/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Total Apostas</p>
+                <p className="text-lg font-bold">
+                  {dadosParaExibir.totalApostas}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {dadosParaExibir.unidadesTotaisApostadas?.toFixed(1) || resumoMes?.unidadesTotais.toFixed(1)} un.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Calendário */}
         {renderizarCalendario()}
       </CardContent>
     </Card>

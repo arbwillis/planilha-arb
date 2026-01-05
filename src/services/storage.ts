@@ -292,14 +292,17 @@ export const obterDataHoraAtual = (): Date => {
 };
 
 // Função para limpar e validar dados de freebets
+// Permite múltiplas freebets com os mesmos dados (cada uma tem ID único)
 export const validarELimparFreebets = (): void => {
   if (typeof window === 'undefined') return;
   
   try {
     const freebets = obterFreebets();
     const freebetsValidas: Freebet[] = [];
+    const idsVistos = new Set<string>();
     
     freebets.forEach(freebet => {
+      // Validar estrutura básica
       if (
         freebet.id &&
         freebet.titulo &&
@@ -311,14 +314,9 @@ export const validarELimparFreebets = (): void => {
         (typeof freebet.requisito === 'string' || freebet.requisito === undefined) &&
         typeof freebet.ativa === 'boolean'
       ) {
-        const jaExiste = freebetsValidas.find(fb => 
-          fb.titulo === freebet.titulo && 
-          fb.valor === freebet.valor && 
-          fb.dataAquisicao === freebet.dataAquisicao &&
-          fb.casaDeApostas === freebet.casaDeApostas
-        );
-        
-        if (!jaExiste) {
+        // Apenas verificar se o ID é único (evitar duplicação de registro exato)
+        if (!idsVistos.has(freebet.id)) {
+          idsVistos.add(freebet.id);
           freebetsValidas.push(freebet);
         }
       }
